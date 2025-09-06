@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Desenho com Círculos e Imagem</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+    }
+    canvas {
+        background-image: url('campo.png');
+        background-size: cover;
+        background-position: center;
+        display: block;
+    }
+    .toolbar {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      background: rgba(255, 255, 255, 0.8);
+      padding: 10px;
+      border-radius: 8px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      z-index: 10;
+    }
+    .toolbar button {
+      font-size: 20px;
+      cursor: pointer;
+      padding: 5px 10px;
+    }
+    #colorPicker {
+      height: 30px;
+      width: 30px;
+      border: none;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <button id="toggleDraw">✏️</button>
+    <input type="color" id="colorPicker" value="#000000" />
+    <button id="clearCanvas">🗑️</button>
+  </div>
+  <canvas id="canvas"></canvas>
+
+  <script>
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+
+    const toggleDrawBtn = document.getElementById("toggleDraw");
+    const colorPicker = document.getElementById("colorPicker");
+    const clearCanvasBtn = document.getElementById("clearCanvas");
+
+    let drawingEnabled = false;
+    let isDrawing = false;
+    let lastX = 0, lastY = 0;
+
+    let isDragging = false;
+    let draggedObject = null;
+    let offsetX = 0, offsetY = 0;
+
+
+    // Cria 5 círculos azuis e 5 vermelhos
+    const circles = [
+        // Círculos azuis
+        { x: 300, y: 455, radius: 20, color: '#68AFFF' },
+        { x: 620, y: 455, radius: 20, color: '#68AFFF' },
+        { x: 880, y: 455, radius: 20, color: '#68AFFF' },
+        { x: 740, y: 782, radius: 20, color: '#68AFFF' },
+        { x: 740, y: 130, radius: 20, color: '#68AFFF' },
+
+        // Círculos vermelhos
+        { x: 1620, y: 455, radius: 20, color: '#FF6868' },
+        { x: 1310, y: 455, radius: 20, color: '#FF6868' },
+        { x: 1040, y: 455, radius: 20, color: '#FF6868' },
+        { x: 1185, y: 782, radius: 20, color: '#FF6868' },
+        { x: 1185, y: 130, radius: 20, color: '#FF6868' },
+    ];
+    
+
+    // Cria imagem arrastável
+    const draggableImage = {
+      x: 948,
+      y: 445,
+      width: 26,
+      height: 26,
+      img: new Image(),
+      loaded: false
+    };
+
+    draggableImage.img.src = 'bola.png';
+    draggableImage.img.onload = () => {
+      draggableImage.loaded = true;
+      drawEverything();
+    };
+
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      drawEverything();
+    }
+
+    window.addEventListener("resize", resizeCanvas);
+    resizeCanvas();
+
+    function drawEverything() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Círculos
+      for (const c of circles) {
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, c.radius, 0, Math.PI * 2);
+        ctx.fillStyle = c.color;
+        ctx.fill();
+        ctx.lineWidth = 4;
+        ctx.strokeStyle = 'white';
+        ctx.stroke();
+      }
+
+      // Imagem
+      if (draggableImage.loaded) {
+        ctx.drawImage(
+          draggableImage.img,
+          draggableImage.x,
+          draggableImage.y,
+          draggableImage.width,
+          draggableImage.height
+        );
+      }
+    }
+
+    function getMousePos(e) {
+      const rect = canvas.getBoundingClientRect();
+      return {
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top,
+      };
+    }
+
+    canvas.addEventListener("mousedown", (e) => {
+      const pos = getMousePos(e);
+
+      if (drawingEnabled) {
+        isDrawing = true;
+        [lastX, lastY] = [pos.x, pos.y];
+        return;
+      }
+
+      // Verifica se clicou na imagem
+      if (
+        draggableImage.loaded &&
+        pos.x >= draggableImage.x &&
+        pos.x <= draggableImage.x + draggableImage.width &&
+        pos.y >= draggableImage.y &&
+        pos.y <= draggableImage.y + draggableImage.height
+      ) {
+        isDragging = true;
+        draggedObject = draggableImage;
+        offsetX = pos.x - draggableImage.x;
+        offsetY = pos.y - draggableImage.y;
+        return;
+      }
+
+      // Verifica se clicou em algum círculo
+      for (const c of circles) {
+        const dx = pos.x - c.x;
+        const dy = pos.y - c.y;
+        if (Math.sqrt(dx * dx + dy * dy) < c.radius) {
+          isDragging = true;
+          draggedObject = c;
+          offsetX = dx;
+          offsetY = dy;
+          return;
+        }
+      }
+    });
+
+    canvas.addEventListener("mousemove", (e) => {
+      const pos = getMousePos(e);
+
+      if (isDrawing && drawingEnabled) {
+        ctx.strokeStyle = colorPicker.value;
+        ctx.lineWidth = 3;
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.moveTo(lastX, lastY);
+        ctx.lineTo(pos.x, pos.y);
+        ctx.stroke();
+        [lastX, lastY] = [pos.x, pos.y];
+        return;
+      }
+
+      if (isDragging && draggedObject) {
+        if ('radius' in draggedObject) {
+          // É um círculo
+          draggedObject.x = pos.x - offsetX;
+          draggedObject.y = pos.y - offsetY;
+        } else {
+          // É a imagem
+          draggedObject.x = pos.x - offsetX;
+          draggedObject.y = pos.y - offsetY;
+        }
+        drawEverything();
+      }
+    });
+
+    canvas.addEventListener("mouseup", () => {
+      isDrawing = false;
+      isDragging = false;
+      draggedObject = null;
+    });
+
+    canvas.addEventListener("mouseout", () => {
+      isDrawing = false;
+      isDragging = false;
+      draggedObject = null;
+    });
+
+    toggleDrawBtn.addEventListener("click", () => {
+      drawingEnabled = !drawingEnabled;
+      toggleDrawBtn.style.backgroundColor = drawingEnabled ? "#ddd" : "";
+    });
+
+    clearCanvasBtn.addEventListener("click", () => {
+      drawEverything(); // Apaga o desenho mas mantém círculos e imagem
+    });
+  </script>
+</body>
+</html>
